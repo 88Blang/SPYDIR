@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling >= 1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "SPYDIR"
+version = "2025.0.0"
+authors = [
+  {name = "Brendan"},
+]
+description = "SPYDIR - Stock analysis and report generation for Python"
+readme = "README.md"
+
+requires-python = ">= 3.8"
+
+dependencies = [
+    "pandas",
+    "numpy",
+    "scipy",
+    "bs4",
+    "lxml",
+    "requests",
+    "wikipedia",
+    "yahooquery",
+    "plotly",
+    "kaleido",
+    "openpyxl",
+    "reportlab"
+]
+
+
+[project.optional-dependencies]
+dev = ["black"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "SPYDIR/*",
+]
