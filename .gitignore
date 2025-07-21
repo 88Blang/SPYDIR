@@ -13,6 +13,5 @@ Include/
 *.log*
 
 media/
-*.pdf
 nbs/
 *.ipynb
