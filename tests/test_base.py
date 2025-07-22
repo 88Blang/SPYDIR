@@ -1,6 +1,4 @@
 import unittest
-
-# import warnings
 from SPYDIR.base.base import get_base
 from SPYDIR.stock_client import stock_client
 

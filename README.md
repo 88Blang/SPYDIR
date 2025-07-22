@@ -13,3 +13,9 @@ from SPYDIR import Stock
 aapl_stock = Stock('AAPL')
 aapl_stock.create_report()
 ```
+
+
+## Install:
+```
+pip install git+https://github.com/88Blang/SPYDIR.git
+```

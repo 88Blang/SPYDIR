@@ -1,10 +1,9 @@
 import unittest
 from SPYDIR.stock_client import stock_client
 from SPYDIR.data import cache
-from tests import dummy_cache
 
 
-class Test_Base(unittest.TestCase):
+class Test_Reports(unittest.TestCase):
     """
     TODO
     - complete tests
@@ -31,3 +30,18 @@ class Test_Base(unittest.TestCase):
 
         for key in ["moving_averages", "performance"]:
             self.assertTrue(key in stock_obj.keys())
+
+    def test_structure(self):
+
+        stock_obj = stock_client(ticker="AAPL", arg="report")
+
+        report_args = [
+            "news",
+            "wiki",
+            "related",
+            "history",
+            "statements",
+        ]
+        print(stock_obj.keys())
+        for arg in report_args:
+            self.assertTrue(arg in stock_obj.keys())

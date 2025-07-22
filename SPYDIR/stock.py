@@ -1,18 +1,17 @@
 from SPYDIR.stock_client import stock_client
 import pandas as pd
 from SPYDIR.utils.helpers import get_img
-from .financial.helpers import nasdaq_IS_summary
+from SPYDIR.financial.helpers import nasdaq_IS_summary
 from SPYDIR.pdf.get_report import get_report
 from SPYDIR.excel.get_excel import get_excel
+from SPYDIR.stock_client import Field
 
 
 class Stock:
 
-    def __init__(self, ticker):
-
+    def __init__(self, ticker, arg=None):
         self.ticker = ticker
-
-        stock_client(ticker)
+        stock_client(ticker, arg=arg or Field.BASE)
 
     def get_dict(self) -> dict:
         return stock_client(self.ticker)

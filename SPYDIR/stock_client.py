@@ -3,17 +3,27 @@ from .history import get_history, _calc_performance
 from .related import get_related
 from .news import get_news
 from .wiki import get_wiki
-
 from .financial.statements import get_statements
 from .data import cache
 from .utils.format_helpers import *
-
 from SPYDIR.logs.log_setup import logger
 
+from concurrent.futures import ThreadPoolExecutor
+from enum import Enum
 
-def stock_client(ticker: str, cache=cache, arg: str = None) -> dict:
+
+class Field(str, Enum):
+    BASE = "base"
+    NEWS = "news"
+    WIKI = "wiki"
+    RELATED = "related"
+    HISTORY = "history"
+    STATEMENTS = "statements"
+    REPORT = "report"
+
+
+def stock_client(ticker: str, cache=cache, arg: Field = Field.BASE) -> dict:
     """Manages stock cache and fetching data.
-
 
     Args:
         ticker (str): Stock ticker
@@ -25,7 +35,7 @@ def stock_client(ticker: str, cache=cache, arg: str = None) -> dict:
     """
     stock_obj = cache.get(ticker)
 
-    if arg == None and stock_obj == None:  # Create
+    if arg == Field.BASE and stock_obj == None:  # Create
         # Fetch Data
         stock_obj = get_base(ticker)
         if stock_obj:
@@ -39,11 +49,11 @@ def stock_client(ticker: str, cache=cache, arg: str = None) -> dict:
         else:
             raise ValueError(f"{ticker} Not Found")
 
-    if arg == None and stock_obj:  # Return Cache
+    if arg == Field.BASE and stock_obj:  # Return Cache
         logger.debug("Returning what is in cache")
         return stock_obj
 
-    elif arg == "report" and stock_obj:
+    elif arg == Field.REPORT and stock_obj:
 
         report_args = [
             "news",
@@ -51,26 +61,27 @@ def stock_client(ticker: str, cache=cache, arg: str = None) -> dict:
             "related",
             "history",
             "statements",
-        ]  # sources, trend
+        ]
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            results = executor.map(
+                lambda arg: stock_client(ticker, cache, arg),
+                report_args,
+            )
 
-        for key in report_args:
-            logger.debug(f"Fetching {key} for report")
-            data = stock_client(ticker, arg=key)
-
-            # UNPACK - Add to stock_obj
-            func_name = f"_unpack_{key}"
+        for arg, data in zip(report_args, results):
+            func_name = f"_unpack_{arg}"
             if func_name in globals():
                 stock_obj = globals()[func_name](stock_obj, data)
-                cache.delete(f"{ticker}_{key}")
+                cache.delete(f"{ticker}_{arg}")
             else:
-                stock_obj[key] = data
-                cache.delete(f"{ticker}_{key}")
+                stock_obj[arg] = data
+                cache.delete(f"{ticker}_{arg}")
 
         # Update stock_obj in cache
         cache.set(ticker, stock_obj)
         return stock_obj
 
-    else:  # Get Arg
+    elif arg in Field:  # Get Arg
 
         # Case 1: In obj
         if arg in stock_obj:
@@ -104,6 +115,8 @@ def stock_client(ticker: str, cache=cache, arg: str = None) -> dict:
                 return data
             else:
                 raise ValueError(f"Function '{func_name}' is not defined")
+    else:
+        raise ValueError(f"Arg '{arg}' is not defined")
 
 
 def _unpack_history(stock_obj, history):

@@ -25,7 +25,8 @@ dependencies = [
     "plotly",
     "kaleido",
     "openpyxl",
-    "reportlab"
+    "reportlab",
+    "colorthief"
 ]
 
 
