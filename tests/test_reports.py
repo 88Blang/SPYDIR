@@ -22,14 +22,17 @@ class Test_Reports(unittest.TestCase):
         self.assertIsInstance(stock_obj, dict)
 
         for key in report_args:
-            self.assertTrue(key in stock_obj.keys())
+            self.assertTrue(key in stock_obj.keys(), msg=f"Key: {key} not in stock_obj")
 
         for key in report_args:
             data = cache.get(f"{test_ticker}_{key}")
             self.assertTrue(data is None)
 
         for key in ["moving_averages", "performance"]:
-            self.assertTrue(key in stock_obj.keys())
+            self.assertTrue(
+                key in stock_obj["performance"].keys(),
+                msg=f"Key: {key} not in stock_obj.performance",
+            )
 
     def test_structure(self):
 

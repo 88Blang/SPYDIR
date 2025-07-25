@@ -33,6 +33,7 @@ def stock_client(ticker: str, cache=cache, arg: Field = Field.BASE) -> dict:
     Returns:
         dict: stock_obj if arg='report' or 'None', else data_dict of data requested
     """
+    ticker = ticker.upper()
     stock_obj = cache.get(ticker)
 
     if arg == Field.BASE and stock_obj == None:  # Create
@@ -62,7 +63,7 @@ def stock_client(ticker: str, cache=cache, arg: Field = Field.BASE) -> dict:
             "history",
             "statements",
         ]
-        with ThreadPoolExecutor(max_workers=3) as executor:
+        with ThreadPoolExecutor(max_workers=6) as executor:
             results = executor.map(
                 lambda arg: stock_client(ticker, cache, arg),
                 report_args,
@@ -71,7 +72,10 @@ def stock_client(ticker: str, cache=cache, arg: Field = Field.BASE) -> dict:
         for arg, data in zip(report_args, results):
             func_name = f"_unpack_{arg}"
             if func_name in globals():
-                stock_obj = globals()[func_name](stock_obj, data)
+                if data.get("_meta", {}).get("status", "") == "NA":
+                    stock_obj[arg] = data
+                else:
+                    stock_obj = globals()[func_name](stock_obj, data)
                 cache.delete(f"{ticker}_{arg}")
             else:
                 stock_obj[arg] = data
@@ -125,7 +129,48 @@ def _unpack_history(stock_obj, history):
     """
     perf_dict = _calc_performance(history)
 
-    stock_obj.update(perf_dict)
+    stock_obj["performance"].update(perf_dict)
     stock_obj.update({"history": history})
+    return stock_obj
+
+
+def _unpack_wiki(stock_obj, wiki):
+    """
+    When moving wiki cache into stock_obj, move
+    """
+
+    # TODO - fix
+    if "Wikipedia" not in [item["title"] for item in stock_obj["sources"]]:
+        stock_obj["sources"].append(
+            {
+                "title": "Wikipedia",
+                "link": wiki.get("url", ""),
+            }
+        )
+
+    stock_obj["wiki"] = wiki
+    # stock_obj["summary"].update({"wiki": wiki.get("summary", "")})
+    # stock_obj.update({"logo": wiki.get("img", "")})
+
+    return stock_obj
+
+
+def _unpack_statements(stock_obj, statements):
+    """
+    When moving wiki cache into stock_obj, move
+    """
+    meta = statements["_meta"]
+
+    # TODO - fix
+    if meta["source"] == "NASDAQ":
+        if "NASDAQ" not in [item["title"] for item in stock_obj["sources"]]:
+            stock_obj["sources"].append(
+                {
+                    "title": "NASDAQ",
+                    "link": meta.get("source_link", ""),
+                }
+            )
+
+    stock_obj["statements"] = statements
 
     return stock_obj

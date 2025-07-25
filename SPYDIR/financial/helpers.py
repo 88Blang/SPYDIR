@@ -1,32 +1,14 @@
 import pandas as pd
+from SPYDIR.utils.format_helpers import (
+    remove_currency,
+    remove_pct,
+    format_currency,
+    format_pct,
+)
 
 
-def remove_currency(x: str) -> int:
-    """Convert string '$303,303,000' to integer 303303000 ."""
-    if x in ["", "-", "--"]:
-        return 0
-    num = int(x.replace("$", "").replace(",", "").strip())
-    return num
-
-
-def format_currency(n: int) -> str:
-    """Convert integer 303303000 to string like '$303,303,000'."""
-    return f"${n:,.0f}"
-
-
-def remove_pct(x: str) -> float:
-    """Convert string 10.0% to float like '0.1'."""
-    num = float(x.replace("%", "").replace(",", "").strip())
-    return num / 100
-
-
-def format_pct(n: float) -> str:
-    """Convert float like '0.1' to string like '10.0%'."""
-    return f"{n*100:,.3f}%"
-
-
-# df[col] = df[col].map('${:,.2f}'.format)
-# TODO - expand to work with both rows and cols - based on if it has %/$
+# # df[col] = df[col].map('${:,.2f}'.format)
+# # TODO - expand to work with both rows and cols - based on if it has %/$
 def remove_format(x):
     """Remove format, depending on if labeled a pct ("_pct") or a currency symbol like '$'"""
     if x.name.endswith("_pct"):
@@ -84,3 +66,16 @@ def nasdaq_IS_summary(stock_statements: dict) -> pd.DataFrame:
     res = res.rename(name_map)
 
     return res, growths
+
+
+def model_df_from_statements(statements):
+    model_df = pd.DataFrame()
+    for key in ["income_statement", "cash_flow", "balance_sheet"]:
+        df_key = pd.DataFrame(statements[key])
+        mapping = statements["_meta"]["map"][key]
+        df_meta_df_key = df_key.loc[list(mapping.values())].copy()
+        df_meta_df_key.index = list(mapping.keys())
+        model_df = pd.concat([model_df, df_meta_df_key])
+    model_df = model_df.apply(remove_format)
+    model_df = model_df.apply(lambda x: x * statements["_meta"]["scale"])
+    return model_df

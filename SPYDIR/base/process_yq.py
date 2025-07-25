@@ -1,6 +1,6 @@
 from yahooquery import Ticker
 import re
-from ..utils.format_helpers import *
+from SPYDIR.utils.format_helpers import *
 import pandas as pd
 
 
@@ -63,110 +63,41 @@ def init_tick(ticker: str, context: dict) -> dict:
     # Custom Context
     context = format_content(context)
 
+    context["sources"] = [
+        {
+            "title": "Website",
+            "link": context.get("website", ""),
+        },
+    ]
+    if context.get("ir_website", None) and context.get("ir_website", "") != context.get(
+        "website", ""
+    ):
+        context["sources"].append(
+            {
+                "title": "IR Website",
+                "link": context.get("ir_website", ""),
+            }
+        )
+
     return context
 
 
 def format_content(context):
-    context["info"] = {
-        "Name": context["name"],
-        "Ticker": context["ticker"],
-        "Sector": context["sector"],
-        "Industry": context["industry"],
-        "Exchange": context["exchange"],
-        "Price": format_price(context["price"]),
-        "Avg. Vol": format_large_number(context["average_volume"]),
-        "Market Cap": format_large_number(context["market_cap"]),
-        "PE Ratio": format_number(context["pe_ratio"]),
-        "PB Ratio": format_number(context["pb_ratio"]),
-        "Beta": format_number(context["beta"]),
-        "Dividend": format_percent(context["dividend_yield"]),
-    }
 
     context["analyst"]["info"] = {
         "Price Target": context["analyst"].get("price_target", {}).get("median", "-"),
         "Rating": context["analyst"].get("recommendation", {}).get("score", "-"),
-        "Implied Move": format_percent(
+        "Implied Move": format_pct(
             context["analyst"].get("price_target", {}).get("move", 0)
         ),
         "View": context["analyst"].get("recommendation", {}).get("tag", "-"),
     }
 
-    context["financial"]["ratios"]["info"] = {
-        # "Quick Ratio": format_number(
-        #     context["financial"]["ratios"].get("quick_ratio", "-")
-        # ),
-        # "Current Ratio": format_number(
-        #     context["financial"]["ratios"].get("current_ratio", "-")
-        # ),
-        # "Debt To Equity": format_number(
-        #     context["financial"]["ratios"].get("debt_to_equity", "-")
-        # ),
-        "Return On Assets": format_percent(
-            context["financial"]["ratios"].get("return_on_assets", "-")
-        ),
-        "Return On Equity": format_percent(
-            context["financial"]["ratios"].get("return_on_equity", "-")
-        ),
-        "Earnings Growth": format_percent(
-            context["financial"]["ratios"].get("earnings_growth", "-")
-        ),
-        "Revenue Growth": format_percent(
-            context["financial"]["ratios"].get("revenue_growth", "-")
-        ),
-        "Gross Margin": format_percent(
-            context["financial"]["ratios"].get("gross_margin", "-")
-        ),
-        "Ebitda Margin": format_percent(
-            context["financial"]["ratios"].get("ebitda_margin", "-")
-        ),
-        "Operating Margin": format_percent(
-            context["financial"]["ratios"].get("operating_margin", "-")
-        ),
-        "Profit Margin": format_percent(
-            context["financial"]["ratios"].get("profit_margin", "-")
-        ),
-    }
-
-    context["financial"]["metrics"]["info"] = {
-        "Revenue": format_large_number(context["financial"]["metrics"]["revenue"]),
-        "EBITDA": format_large_number(context["financial"]["metrics"]["ebitda"]),
-        "Gross Profits": format_large_number(
-            context["financial"]["metrics"]["gross_profits"]
-        ),
-    }
-
-    context["shares"]["info"] = {
-        "Shares Outstanding": format_large_number(context["shares"]["shares"]),
-        "Share Float": format_large_number(context["shares"]["shares_float"]),
-        # "% Held by Insider": format_percent(context["shares_pct_insider"]),
-        # "% Held by Institutions": format_percent(context["shares_pct_institutions"]),
-        "% Short": format_percent(context["shares"]["shares_short_pct"]),
-        "Shares Short": format_large_number(context["shares"]["shares_short"]),
-        # "Shares Short 1m": format_large_number(context["shares_short_prev_month"]),
-        "Short Ratio": format_number(context["shares"]["shares_short_ratio"]),
-    }
-    context["esg"]["info"] = {  #                {{ esg.company_risk }}
-        "Audit": context["esg"].get("company_risk", {}).get("audit", "-"),
-        "Board": context["esg"].get("company_risk", {}).get("board", "-"),
-        "Compensation": context["esg"].get("company_risk", {}).get("compensation", "-"),
-        "Shareholder": context["esg"].get("company_risk", {}).get("shareholder", "-"),
-        "Overall": context["esg"].get("company_risk", {}).get("overall", "-"),
-        "Employee Count": context["esg"].get("employee_count", "-"),
-        "% Held Insider": format_percent(context["shares"]["shares_pct_insider"]),
-        "% Held Institutions": format_percent(
-            context["shares"]["shares_pct_institutions"]
-        ),
-    }
-
     if context["performance"].get("ta", {}) != {}:
         context["performance"]["info"] = {
-            "Support": format_price(context["performance"]["ta"].get("support", "-")),
-            "Resistance": format_price(
-                context["performance"]["ta"].get("resistance", "-")
-            ),
-            "Stop Loss": format_price(
-                context["performance"]["ta"].get("stop_loss", "-")
-            ),
+            "Support": (context["performance"]["ta"].get("support", "-")),
+            "Resistance": (context["performance"]["ta"].get("resistance", "-")),
+            "Stop Loss": (context["performance"]["ta"].get("stop_loss", "-")),
             "Short-term Direction": context["performance"]["ta"]
             .get("short", {})
             .get("direction", "-"),
@@ -204,20 +135,22 @@ def _process_assetProfile(context, assetProfile_dict):
                 {
                     "Name": officer["name"],
                     "Title": officer["title"],
-                    "Total Pay": format_large_number(officer.get("totalPay", 0)),
+                    "Total Pay": format_number(officer.get("totalPay", 0)),
                 }
             )
 
-    context["esg"]["company_officers"] = pd.DataFrame(company_officers).to_dict()
-    # context["esg"]["company_officers"] = company_officers
+    # context["esg"]["company_officers"] = pd.DataFrame(company_officers).to_dict()
+    context["esg"]["company_officers"] = company_officers
 
-    context["esg"]["company_risk"] = {
-        "audit": assetProfile_dict.get("auditRisk", 0),
-        "board": assetProfile_dict.get("boardRisk", 0),
-        "compensation": assetProfile_dict.get("compensationRisk", 0),
-        "shareholder": assetProfile_dict.get("shareHolderRightsRisk", 0),
-        "overall": assetProfile_dict.get("overallRisk", 0),
-    }
+    context["esg"].update(
+        {
+            "audit_risk": assetProfile_dict.get("auditRisk", 0),
+            "board_risk": assetProfile_dict.get("boardRisk", 0),
+            "compensation_risk": assetProfile_dict.get("compensationRisk", 0),
+            "shareholder_risk": assetProfile_dict.get("shareHolderRightsRisk", 0),
+            "overall_risk": assetProfile_dict.get("overallRisk", 0),
+        }
+    )
 
     return context
 
@@ -377,6 +310,7 @@ def _process_financialData(context, fin_dict):
             "profit_margin": fin_dict.get("profitMargins", 0),
         }
     )
+    context["financial"]["currency"] = fin_dict.get("financialCurrency", "USD")
     return context
 
 
@@ -389,20 +323,20 @@ def _process_defaultKeyStatistics(context, key_stat_dict):
     context["book_value"] = key_stat_dict.get("bookValue", 0)
     context["ev_value"] = key_stat_dict.get("enterpriseValue", 0)
 
-    context["shares"]["shares"] = key_stat_dict.get("sharesOutstanding", 0)
-    context["shares"]["shares_pct_insider"] = key_stat_dict.get(
+    context["shares"]["outstanding"] = key_stat_dict.get("sharesOutstanding", 0)
+    context["shares"]["shares_insider_pct"] = key_stat_dict.get(
         "heldPercentInsiders", 0
     )
-    context["shares"]["shares_pct_institutions"] = key_stat_dict.get(
+    context["shares"]["shares_institutions_pct"] = key_stat_dict.get(
         "heldPercentInstitutions", 0
     )
-    context["shares"]["shares_float"] = key_stat_dict.get("floatShares", 0)
+    context["shares"]["float"] = key_stat_dict.get("floatShares", 0)
     context["shares"]["shares_short"] = key_stat_dict.get("sharesShort", 0)
-    context["shares"]["shares_short_prev_month"] = key_stat_dict.get(
+    context["shares"]["short_prev_month"] = key_stat_dict.get(
         "sharesShortPriorMonth", 0
     )
-    context["shares"]["shares_short_ratio"] = key_stat_dict.get("shortRatio", 0)
-    context["shares"]["shares_short_pct"] = key_stat_dict.get("shortPercentOfFloat", 0)
+    context["shares"]["short_ratio"] = key_stat_dict.get("shortRatio", 0)
+    context["shares"]["short_pct"] = key_stat_dict.get("shortPercentOfFloat", 0)
 
     return context
 

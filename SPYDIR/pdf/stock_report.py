@@ -1,10 +1,10 @@
-import os
+# import os
 import plotly.graph_objects as go
 from plotly.io import write_image
 import pandas as pd
 from io import BytesIO
-from PIL import Image as PILImage
 
+import numpy as np
 from reportlab.platypus import (
     BaseDocTemplate,
     PageTemplate,
@@ -18,21 +18,44 @@ from reportlab.platypus import (
     ListFlowable,
     Spacer,
     NextPageTemplate,
+    ListItem,
 )
-
-from SPYDIR.utils.helpers import *
-from SPYDIR.pdf.helpers import *
-from reportlab.lib.enums import TA_LEFT
-
-from reportlab.lib.styles import ParagraphStyle, ListStyle
+from reportlab.lib.colors import HexColor  # for c1
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from reportlab.lib import colors
-
-# from reportlab.lib.colors import HexColor
 from reportlab.lib.styles import getSampleStyleSheet
+from SPYDIR.utils.helpers import *
 
 sample_styles = getSampleStyleSheet()
+
+default_hex = "#7798AB"
+c1 = colors.HexColor(default_hex)
+
+
+header_style = {
+    "BACKGROUND": colors.aqua,  # c1,
+    "TEXTCOLOR": colors.whitesmoke,
+    "FONTNAME": "Helvetica-Bold",
+    "FONTSIZE": 20,
+    "PADDING": 10,
+    "BOTTOMPADDING": 4,
+    "ALIGN": "LEFT",
+    "VALIGN": "MIDDLE",
+}
+
+index_style = {
+    "BACKGROUND": colors.plum,  # colors.white,
+    "FONTNAME": "Helvetica-Bold",
+    "ALIGN": "LEFT",
+}
+
+body_style = {
+    "BACKGROUND": colors.red,
+    "FONTNAME": "Helvetica",
+    "ALIGN": "RIGHT",
+}
+
 
 # Var
 ## Size ref
@@ -42,19 +65,6 @@ page_width, page_height = letter
 main_column_width = 2 * page_width / 3
 side_column_width = page_width / 3
 col_start_height = page_height - 2.5 * inch
-
-
-custom_list_style = ListStyle(
-    "CustomList",
-    bulletFontSize=16,  # Smaller bullet size
-    bulletType="bullet",  # Bullet type (e.g., circle, square, etc.)
-    bulletColor=colors.black,  # Bullet color
-    leftIndent=20,  # Indentation for the list
-    bulletOffset=30,  # Adjust bullet position
-    bulletIndent=20,  # Space between bullet and text
-    spaceBefore=5,  # Space before each list item
-    spaceAfter=5,  # Space after each list item
-)
 
 
 class Stock_Template(BaseDocTemplate):
@@ -222,7 +232,8 @@ class Stock_Template(BaseDocTemplate):
         self.title_style = sample_styles["Title"]
 
         default_hex = "#7798AB"
-        self.c1 = colors.HexColor(default_hex)
+        # self.c1 = colors.HexColor(default_hex)
+        self.c1 = get_img_color(self.logo)
 
         self.h1_style = sample_styles["Heading1"]
         self.h1_style.textColor = self.c1
@@ -270,21 +281,38 @@ class Stock_Template(BaseDocTemplate):
             img.drawHeight = scaled_height
             img.drawWidth = scaled_width
 
-            # Position
+            # Top Right Position
+            # x_position = (
+            #     self.pagesize[0] - scaled_width - rem / 2
+            # )  # Right-aligned within margin
+            # y_position = (
+            #     self.pagesize[1] - scaled_height - rem / 2
+            # )  # Top-aligned within margin
+
             x_position = (
-                self.pagesize[0] - scaled_width - rem / 2
+                self.width / 2 - scaled_width / 2
             )  # Right-aligned within margin
             y_position = (
-                self.pagesize[1] - scaled_height - rem / 2
-            )  # Top-aligned within margin
+                # scaled_height
+                0.35
+                * inch  # + rem  # Top-aligned within margin
+            )
 
             img.drawOn(canvas, x_position, y_position)
         except:
             raise FileNotFoundError("IMG ERROR")
 
         ## Footer
+        y_offset1 = 0.5 * inch  # Adjust Y for second line
+        y_offset2 = 0.35 * inch  # Adjust Y for second line
+
         canvas.setFont("Times-Roman", 10)
-        canvas.drawString(inch, 0.75 * inch, f"{self.name} Report / Page: {doc.page}")
+        # Left
+        canvas.drawString(inch / 2, y_offset1, f"{self.name} Report")
+        canvas.drawString(inch / 2, y_offset2, f"Page: {doc.page}")
+        # Right
+        # canvas.drawRightString(self.width - inch / 2, y_offset1, f"Made with SPYDIR")
+        canvas.drawRightString(self.width - inch / 2, y_offset2, f"Made with SPYDIR")
 
         canvas.restoreState()
 
@@ -363,21 +391,18 @@ class Stock_Template(BaseDocTemplate):
 
         story.append(Spacer(0, 10))
         story.append(Paragraph("Company Officers", self.h2_style))
-        # story.append(Paragraph(context["summary"]["pitch"], self.normal_style))
 
-        # officer_table = self.dicts_table(
-        #     context["esg"]["company_officers"],
-        #     title="Officers",
-        #     width=main_column_width - 2 * rem,
-        # )
-        officer_table = row_table(
-            data_dict=context["esg"]["company_officers"],
+        co_df = pd.DataFrame(context["esg"]["company_officers"])[["Name", "Title"]]
+
+        co_table = self.df_table(
+            co_df,
+            show_index=False,
+            col_widths=None,
             width=main_column_width - 2 * rem,
-            cols=[1, 1],
             wrap=True,
         )
 
-        story.append(officer_table)
+        story.append(co_table)
 
         story.append(FrameBreak())
 
@@ -390,74 +415,16 @@ class Stock_Template(BaseDocTemplate):
         ## News
         story.append(Spacer(0, 10))
 
-        # Custom ListStyle for the ListFlowable
-        custom_list_style = ListStyle(
-            "CustomList",
-            bulletFontSize=16,  # Smaller bullet size
-            bulletType="bullet",  # Bullet type (e.g., circle, square, etc.)
-            bulletColor=colors.black,  # Bullet color
-            bulletOffsetY=5,
-        )
-
-        # ParagraphStyle for the hyperlink
-        link_style = ParagraphStyle(
-            "Hyperlink",
-            parent=self.normal_style,  # Use a base style if defined
-            textColor=colors.black,  # Text color
-            underline=True,  # Underline the text
-        )
-
         story.append(Paragraph("News", self.h3_style))
 
-        # styles = getSampleStyleSheet()
-        # styleN = styles["Normal"]
-        # styleN.firstLineIndent = 20
-        # styleN.spaceBefore = 6
-        # styleN.spaceAfter = 6
-        # styleN.alignment = TA_LEFT
-
         create_link_list(story, context["news"], self.normal_style)
-
-        # # Create Paragraph objects for the list
-        # news = [
-        #     Paragraph(
-        #         f'<a href="{item['link']}" >{item['title']}</a>',
-        #         link_style,  # Apply custom hyperlink style
-        #     )
-        #     for item in context["news"]
-        # ]
-
-        # # Create a ListFlowable with the custom ListStyle
-        # news_link_list = ListFlowable(
-        #     news,
-        #     style=custom_list_style,  # Apply custom ListStyle
-        # )
-
-        # story.append(news_link_list)
 
         ## Sources
         story.append(Spacer(0, 10))
 
         story.append(Paragraph("Sources", self.h3_style))
 
-        create_link_list(story, context["ref_links"], self.normal_style)
-
-        # # Create Paragraph objects for the list
-        # sources = [
-        #     Paragraph(
-        #         f'<a href="{value}">{key}</a>',
-        #         link_style,  # Apply custom hyperlink style
-        #     )
-        #     for key, value in context["ref_links"].items()
-        # ]
-
-        # # Create a ListFlowable with the custom ListStyle
-        # hyperlink_list = ListFlowable(
-        #     sources,
-        #     style=custom_list_style,  # Apply custom ListStyle
-        # )
-
-        # story.append(hyperlink_list)
+        create_link_list(story, context["sources"], self.normal_style)
 
         story.append(FrameBreak())
 
@@ -522,21 +489,11 @@ class Stock_Template(BaseDocTemplate):
         ## Title
         story.append(FrameBreak())
 
-        ## Main
-        # story.append(Paragraph("Graph", style=self.h2_style))
-
         # Create image
-        # chart_image = context["candlestick_img"]
         img_buffer = self.create_candlestick_chart(data=context["chart_data"])
         story.append(
             Image(img_buffer, width=main_column_width * 1.5, height=self.height / 2)
         )
-
-        # story.append(FrameBreak())
-
-        # story.append(Paragraph("P3 ??", style=self.normal_style))
-
-        # story.append(FrameBreak())
 
         story.append(Paragraph("Technical Analysis", style=self.h1_style))
         story.append(Paragraph("Short Term:", style=self.h3_style))
@@ -559,10 +516,14 @@ class Stock_Template(BaseDocTemplate):
         story.append(FrameBreak())
 
         story.append(Spacer(0, 10))
-        story.append(Paragraph("Income Statement:", style=self.h3_style))
-        is_table = statement_table(
-            data_dict=context["statements"]["income_statement"],
+        story.append(Paragraph("Income Statement:", style=self.h1_style))
+
+        is_table = self.df_table(
+            df=pd.DataFrame(context["statements"]["income_statement"]),
+            show_index=True,
+            col_widths=[2, 1, 1, 1, 1],
             width=main_column_width + 4 * rem,
+            wrap=True,
         )
         story.append(is_table)
 
@@ -570,26 +531,106 @@ class Stock_Template(BaseDocTemplate):
         story.append(FrameBreak())
 
         story.append(Spacer(0, 10))
-        story.append(Paragraph("Balance Sheet:", style=self.h3_style))
-        bs_table = statement_table(
-            data_dict=context["statements"]["balance_sheet"],
+        story.append(Paragraph("Balance Sheet:", style=self.h1_style))
+
+        bs_table = self.df_table(
+            df=pd.DataFrame(context["statements"]["balance_sheet"]),
+            show_index=True,
+            col_widths=[2, 1, 1, 1, 1],
             width=main_column_width + 4 * rem,
+            wrap=True,
         )
         story.append(bs_table)
 
         story.append(FrameBreak())
         story.append(FrameBreak())
         story.append(Spacer(0, 10))
-        story.append(Paragraph("Cash Flow:", style=self.h3_style))
-        cf_table = statement_table(
-            data_dict=context["statements"]["cash_flow"],
+        story.append(Paragraph("Cash Flow:", style=self.h1_style))
+
+        cf_table = self.df_table(
+            df=pd.DataFrame(context["statements"]["cash_flow"]),
+            show_index=True,
+            col_widths=[2, 1, 1, 1, 1],
             width=main_column_width + 4 * rem,
+            wrap=True,
         )
         story.append(cf_table)
 
         story.append(FrameBreak())
 
         return story
+
+    def df_table(
+        self,
+        df,
+        show_index=True,
+        col_widths=None,
+        width=main_column_width - rem,
+        wrap=False,
+    ):
+
+        if show_index:
+            df.reset_index(inplace=True)
+            df.rename(columns={"index": ""}, inplace=True)
+
+        if not col_widths:
+            col_width = width / (
+                len(df.columns.tolist())
+            )  # Adjust for double width of rec col
+            colWidths = [col_width for _ in range(len(df.columns.tolist()))]
+        else:
+            total_weight = sum(col_widths)
+            unit_width = width / total_weight
+            colWidths = [w * unit_width for w in col_widths]
+
+        table_data = [df.columns.tolist()] + df.values.tolist()
+
+        if wrap:
+            table_data = [
+                [Paragraph(str(cell), self.normal_style) for cell in row]
+                for row in table_data
+            ]
+
+        table = Table(table_data, colWidths=colWidths)  # Adjust column widths as needed
+
+        # Define table style
+        table_style = TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), self.c1),  # Header background
+                (
+                    "TEXTCOLOR",
+                    (0, 0),
+                    (-1, 0),
+                    colors.whitesmoke,
+                ),
+                ("ALIGN", (0, 0), (-1, 0), "LEFT"),  # Align text left by default
+                ("VALIGN", (0, 0), (-1, 0), "MIDDLE"),  # Align text left by default
+                (
+                    "FONTNAME",
+                    (0, 1),
+                    (0, -1),
+                    "Helvetica-Bold",
+                ),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),  # Header font
+                ("BOTTOMPADDING", (0, 0), (-1, 0), 4),  # Header padding
+                (
+                    "BACKGROUND",
+                    (0, 1),
+                    (-1, -1),
+                    colors.white,
+                ),
+            ]
+        )
+        table.setStyle(table_style)
+        # Add alternating gray background for rows, starting after the header
+        for row_idx in range(1, len(table_data)):
+            if row_idx % 2 == 0:
+                table.setStyle(
+                    TableStyle(
+                        [("BACKGROUND", (0, row_idx), (-1, row_idx), colors.lightgrey)]
+                    )
+                )
+        return table
 
     def dict_table(self, data_dict, title, width=side_column_width - rem):
 
@@ -719,17 +760,17 @@ class Stock_Template(BaseDocTemplate):
             image_file (str): Path to save the chart image.
         """
         candlestick = go.Candlestick(
-            x=data["dates"],
-            open=data["opens"],
-            high=data["highs"],
-            low=data["lows"],
-            close=data["closes"],
+            x=data["date"],
+            open=data["open"],
+            high=data["high"],
+            low=data["low"],
+            close=data["close"],
             name="Candlestick",
         )
 
         # Add 5-day moving average line
         ma_5 = go.Scatter(
-            x=data["dates"],
+            x=data["date"],
             y=data["MA_5"],
             mode="lines",
             name="MA 5 Day",
@@ -738,7 +779,7 @@ class Stock_Template(BaseDocTemplate):
 
         # Add 20-day moving average line
         ma_20 = go.Scatter(
-            x=data["dates"],
+            x=data["date"],
             y=data["MA_20"],
             mode="lines",
             name="MA 20 Day",
@@ -747,10 +788,6 @@ class Stock_Template(BaseDocTemplate):
 
         # # Combine the data
         plot_data = [candlestick, ma_5, ma_20]
-
-        # data=[
-        #         candlestick
-        #     ]
 
         layout = go.Layout(
             title=f"{self.name} Stock Chart with Moving Averages",
@@ -775,14 +812,6 @@ class Stock_Template(BaseDocTemplate):
 
         fig = go.Figure(data=plot_data, layout=layout)
 
-        # Update layout
-        # fig.update_layout(
-        #     xaxis_title="Date",
-        #     yaxis_title="Price",
-        #     template="plotly_white",
-        #     xaxis_rangeslider_visible=False,
-        # )
-
         image_buffer = BytesIO()
 
         # Save as an image
@@ -795,3 +824,18 @@ class Stock_Template(BaseDocTemplate):
         except Exception as e:
 
             print(e)
+
+
+def create_list(story, list_of_items, style):
+    list_items = [
+        ListItem(Paragraph(item, style), spaceAfter=6) for item in list_of_items
+    ]
+
+    story.append(ListFlowable(list_items, bulletType="bullet"))
+
+
+def create_link_list(story, source_list, style):
+    link_list = []
+    for item in source_list:
+        link_list.append(f'<a href="{item.get('link','')}">{item.get('title','')}</a>')
+    create_list(story, list_of_items=link_list, style=style)

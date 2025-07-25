@@ -1,5 +1,13 @@
 from . import process_yq
 from SPYDIR.logs.log_setup import logger
+import datetime
+
+
+YAHOO_META = {
+    "source": "YAHOO",
+    "source_link": "https://finance.yahoo.com/quote/{ticker}/",
+    "scale": 1,
+}
 
 
 def get_base(ticker):
@@ -22,12 +30,37 @@ def get_base(ticker):
             stock_obj = method(str(ticker), root)
             if stock_obj:
                 logger.debug(f"Using {key}")
+
+                stock_obj["_meta"] = get_meta(key, ticker)
+                if ticker.endswith((".V", ".TO")):
+                    st = {"market": "CAD"}
+                else:
+                    st = {"market": "USD"}
+
+                stock_obj["_meta"].update(st)
+                stock_obj["sources"].append(
+                    {
+                        "title": "Yahoo",
+                        "link": stock_obj["_meta"].get("source_link", ""),
+                    }
+                )
                 return stock_obj
         except NameError as e:
             logger.debug(f"Error: {e}")
             raise NameError(f"Ticker: {ticker} Not Found")
         except RuntimeError as e:  # If API fails, continue to next
             continue
+
+
+def get_meta(key, ticker):
+
+    if key == "YQ":
+        meta = YAHOO_META
+        meta["source_link"] = meta["source_link"].format(ticker=ticker)
+
+    meta["time"] = (str(datetime.datetime.now()),)
+
+    return meta
 
 
 def create_tree():

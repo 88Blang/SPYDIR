@@ -1,5 +1,6 @@
 import unittest
-from SPYDIR.markets.stats import *
+from SPYDIR.markets.market import Market
+import types
 
 
 class Test_Markets(unittest.TestCase):
@@ -9,11 +10,11 @@ class Test_Markets(unittest.TestCase):
     """
 
     def test_get_erp(self):
-        data = get_erp()
+        data = Market.get_erp()
         self.assertIsInstance(data, float)
 
     def test_get_forex_rates(self):
-        data = get_forex_rates()
+        data = Market.forex()
         self.assertIsInstance(data, dict)
 
         for key, value in data.items():
@@ -24,12 +25,24 @@ class Test_Markets(unittest.TestCase):
                 )
                 self.assertIsInstance(
                     value,
-                    float,
+                    (float, int),
                     msg=f"Value for {key} is not a float: {value} ({type(value)})",
                 )
+
+    def test_forex_rate_pair(self):
+
+        pairs = ["USD_CAD", "USD_GBP", None, "22"]
+
+        for pair in pairs:
+
+            try:
+                data = Market.forex(pair)
+                self.assertIsInstance(data, float)
+            except NameError:
+                continue
 
     def test_get_interest_rate(self):
 
         for t in [1 / 24, 5 / 12, 2, 6, 35]:
-            data = get_interest_rate(t=t)
+            data = Market.rate(t=t)
             self.assertIsInstance(data, float)

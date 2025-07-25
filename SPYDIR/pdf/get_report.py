@@ -1,13 +1,11 @@
-from SPYDIR.stock_client import (
-    stock_client,
-)
+from SPYDIR import stock
 from SPYDIR.history import history_to_plotly_candle
-
 from .stock_report import Stock_Template
 
-import copy
 from io import BytesIO
 import pandas as pd
+from datetime import datetime
+from copy import deepcopy
 
 
 # Python
@@ -39,33 +37,21 @@ def report_template(request, ticker):
 
 
 def create_report_context(ticker: str):  # full stock obj
-    stock_obj = stock_client(ticker, arg="report")
-    context = copy.deepcopy(stock_obj)
 
-    ref_links = [
-        {
-            "title": "Website",
-            "link": context.get("website", ""),
-        },
-        {
-            "title": "IR Website",
-            "link": context.get("ir_website", ""),
-        },
-        {
-            "title": "Recent Filing",
-            "link": context.get("latest_report_url", ""),
-        },
-        {
-            "title": "Wikipedia",
-            "link": context.get("wiki", {}).get("url", ""),
-        },
-    ]
-    context["ref_links"] = ref_links
+    stock_cls = stock.Stock(ticker=ticker, arg="report")
+    context = deepcopy(stock_cls.get_dict())
 
-    context["related_ticks"] = context.get("related", {})
-    context["chart_data"] = history_to_plotly_candle(context.get("history", {}))
+    context["info"] = stock_cls.info.iloc[:, 0].to_dict()
+    context["financial"]["ratios"]["info"] = stock_cls.ratios.iloc[:, 0].to_dict()
+    context["financial"]["metrics"]["info"] = stock_cls.metrics.iloc[:, 0].to_dict()
 
-    context["ticker"] = ticker
+    aapl_hist = stock_cls.get_history()
+    aapl_hist["date"] = aapl_hist["time"].apply(
+        lambda row: datetime.fromtimestamp(int(row) / 1000).strftime(
+            "%Y-%m-%dT%H:%M:%S.000Z"
+        )
+    )
+    context["chart_data"] = aapl_hist.to_dict(orient="list")
 
     context["news"] = context.get("news", ["", "", "", "", ""])[0:4]
 
@@ -74,12 +60,6 @@ def create_report_context(ticker: str):  # full stock obj
         st_df = pd.DataFrame(st_dict)
         st_df = st_df[~st_df.isin(["--"]).any(axis=1)]
         context["statements"][statement] = st_df.to_dict()
-
-    context["esg"]["company_officers"] = (
-        pd.DataFrame(context["esg"]["company_officers"])
-        .loc[0:5, ["Name", "Title"]]
-        .to_dict()
-    )
 
     return context
 

@@ -37,16 +37,16 @@ def fetch_related_yq(ticker):
         if not isinstance(tick_query, str):
             tick_dict = {
                 "Ticker": tick,
-                "Price": format_price(tick_query.get("currentPrice", "")),
+                "Price": format_currency(tick_query.get("currentPrice", "")),
                 "Recommendation": str(
                     format_number(tick_query.get("recommendationMean", "NA"))
                 )
                 + " - "
                 + tick_query.get("recommendationKey", "").replace("_", " ").title(),
-                "Revenue": format_large_number(tick_query.get("totalRevenue", 0)),
-                "Profit Margin": format_percent(tick_query.get("profitMargins", "-")),
-                "ROA": format_percent(tick_query.get("returnOnAssets", "-")),
-                "ROE": format_percent(tick_query.get("returnOnEquity", "-")),
+                "Revenue": format_number(tick_query.get("totalRevenue", 0)),
+                "Profit Margin": format_pct(tick_query.get("profitMargins", "-")),
+                "ROA": format_pct(tick_query.get("returnOnAssets", "-")),
+                "ROE": format_pct(tick_query.get("returnOnEquity", "-")),
             }
             related_dicts.append(tick_dict)
 

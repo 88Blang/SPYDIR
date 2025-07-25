@@ -82,10 +82,10 @@ def _calc_performance(history):
         "MA_200": sum(closes[-200:]) / 200 if len(closes) >= 200 else None,
     }
     for key, val in moving_averages.items():
-        moving_averages[key] = format_price(val)
+        moving_averages[key] = format_currency(val)
 
     for key, val in perf.items():
-        perf[key] = format_percent(val)
+        perf[key] = format_pct(val)
 
     return {"performance": perf, "moving_averages": moving_averages}
 

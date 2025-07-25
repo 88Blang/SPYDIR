@@ -2,6 +2,14 @@ import requests
 import json
 import pandas as pd
 import datetime
+from enum import Enum
+
+
+class Statement(str, Enum):
+    INCOME = "income_statement"
+    BALANCE = "balance_sheet"
+    CASHFLOW = "cash_flow"
+
 
 headers = {
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:87.0) Gecko/20100101 Firefox/87.0",
@@ -13,11 +21,55 @@ headers = {
 }
 
 
+NASDAQ_META = {
+    "currency": "USD",
+    "source": "NASDAQ",
+    "source_link": "https://www.nasdaq.com/market-activity/stocks/{ticker}/financials",
+    "scale": 1000,
+    "map": {
+        "income_statement": {
+            "revenue": "Total Revenue",
+            "cogs": "Cost of Revenue",
+            "gross_profit": "Gross Profit",
+            "operating_profit": "Operating Income",
+            "ebit": "Earnings Before Interest and Tax",
+            "interest": "Interest Expense",
+            "ebt": "Earnings Before Tax",
+            "tax": "Income Tax",
+            "net_income": "Net Income",
+        },
+        "balance_sheet": {
+            "current_assets": "Total Current Assets",
+            "cash": "Cash and Cash Equivalents",
+            "investments": "Short-Term Investments",
+            "receivables": "Net Receivables",
+            "inventory": "Inventory",
+            "total_assets": "Total Assets",
+            "payables": "Accounts Payable",
+            "other_current_liabilities": "Other Current Liabilities",
+            "current_liabilities": "Total Current Liabilities",
+            "total_debt": "Long-Term Debt",
+            "total_liabilities": "Total Liabilities",
+            "total_equity": "Total Equity",
+        },
+        "cash_flow": {
+            "cfo": "Net Cash Flow-Operating",
+            "depreciation": "Depreciation",
+            "cfi": "Net Cash Flows-Investing",
+            "capex": "Capital Expenditures",
+            "cff": "Net Cash Flows-Financing",
+            "net_cash_flow": "Net Cash Flow",
+        },
+    },
+}
+
+
 def get_statements(ticker):
 
     if ticker.endswith(".V") or ticker.endswith(".TO"):
-        methods = {}
-        return {"NOT AVAILABLE"}
+        statements = {"_meta": {"status": "NA"}}
+
+        return statements
     else:
 
         methods = {
@@ -29,55 +81,22 @@ def get_statements(ticker):
             statements = method(str(ticker))
             if statements:
 
-                statements["_meta"] = get_meta(key)
+                statements["_meta"] = get_meta(key, ticker)
+                statements["_meta"].update({"status": ""})
                 return statements
         except RuntimeError as e:  # If API fails, continue to next
             continue
     return None
 
 
-def get_meta(key):
-    meta = {
-        "currency": "USD",
-        "source": key,
-        "time": str(datetime.datetime.now()),
-    }
+def get_meta(key, ticker):
+
     if key == "NASDAQ":
-        meta["map"] = {
-            "income_statement": {
-                "revenue": "Total Revenue",
-                "cogs": "Cost of Revenue",
-                "gross_profit": "Gross Profit",
-                "operating_profit": "Operating Income",
-                "ebit": "Earnings Before Interest and Tax",
-                "interest": "Interest Expense",
-                "ebt": "Earnings Before Tax",
-                "tax": "Income Tax",
-                "net_income": "Net Income",
-            },
-            "balance_sheet": {
-                "current_assets": "Total Current Assets",
-                "cash": "Cash and Cash Equivalents",
-                "investments": "Short-Term Investments",
-                "receivables": "Net Receivables",
-                "inventory": "Inventory",
-                "total_assets": "Total Assets",
-                "payables": "Accounts Payable",
-                "other_current_liabilities": "Other Current Liabilities",
-                "current_liabilities": "Total Current Liabilities",
-                "total_debt": "Long-Term Debt",
-                "total_liabilities": "Total Liabilities",
-                "total_equity": "Total Equity",
-            },
-            "cash_flow": {
-                "cfo": "Net Cash Flow-Operating",
-                "depreciation": "Depreciation",
-                "cfi": "Net Cash Flows-Investing",
-                "capex": "Capital Expenditures",
-                "cff": "Net Cash Flows-Financing",
-                "net_cash_flow": "Net Cash Flow",
-            },
-        }
+        meta = NASDAQ_META
+        meta["source_link"] = meta["source_link"].format(ticker=ticker.lower())
+
+    meta["time"] = (str(datetime.datetime.now()),)
+
     return meta
 
 
